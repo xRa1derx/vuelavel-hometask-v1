@@ -19,19 +19,19 @@ use Illuminate\Support\Facades\Route;
 // });
 
 
-Route::group(['middleware' => 'auth:sanctum'],function (){
-   Route::get('/', 'IndexController') ;
-});
-
-Route::group(['prefix' => 'admin/users/chat', 'namespace' => 'Admin\Message'], function () {
+Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::get('/', 'IndexController');
-    Route::post('/', 'StoreController');
-    Route::delete('/{message}', 'DeleteController');
-    Route::patch('/{message}', 'UpdateController');
-});
 
-Route::group(['middleware' => 'auth:sanctum', 'prefix' => 'admin/users', 'namespace' => 'Admin\User'], function () {
-    Route::get('/', 'IndexController');
-    Route::post('/create', 'StoreController');
-    Route::patch('/{user}', 'UpdateController');
+    Route::group(['prefix' => 'chat', 'namespace' => 'Message'], function () {
+        Route::get('/', 'IndexController');
+        Route::post('/', 'StoreController');
+        Route::delete('/{message}', 'DeleteController');
+        Route::patch('/{message}', 'UpdateController');
+    });
+
+    Route::group(['middleware' => 'admin', 'prefix' => 'admin/users', 'namespace' => 'Admin\User'], function () {
+        Route::get('/', 'IndexController');
+        Route::post('/create', 'StoreController');
+        Route::patch('/{user}', 'UpdateController');
+    });
 });

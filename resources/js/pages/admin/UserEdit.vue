@@ -35,7 +35,7 @@ export default {
       email: "",
     };
   },
-  mounted() {
+  created() {
     this.currentUser();
   },
   methods: {

@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from "vue-router";
 
+import store from "./store";
+
 import LoginPage from "./pages/LoginPage";
-import axios from "axios";
 import AdminPage from "./pages/admin/AdminPage";
 import UserList from "./pages/admin/UserList";
 import UserEdit from "./pages/admin/UserEdit";
@@ -39,12 +40,9 @@ const router = createRouter({
             name: "register",
         },
         {
-            path: "/user/:id",
+            path: "/chat",
             component: UserPage,
-            name: "user",
-            meta: {
-                requeiresAuth: true,
-            },
+            name: "chat",
         },
         {
             path: "/:notFound(.*)",
@@ -55,8 +53,6 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-    console.log("from Router", to);
-
     const token = localStorage.getItem("x_xsrf_token");
     if (!token) {
         if (to.name === "login") {
@@ -64,12 +60,16 @@ router.beforeEach((to, from, next) => {
         } else {
             return next({ name: "login" });
         }
+    } else {
+        if (to.name === "login") {
+            return next(router.back());
+        }
     }
+    // if (to.name === "login" && token) {
+    //     return next({ name: "admin" } || { name: "chat" });
+    // }
 
     next();
-
-
-    console.log(to.params.id);
 });
 
 export default router;

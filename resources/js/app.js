@@ -1,6 +1,7 @@
 import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";
+import store from "./store";
 
 import BaseButton from "./components/UI/BaseButton";
 import BaseCard from "./components/UI/BaseCard";
@@ -11,6 +12,8 @@ import BaseSpinner from "./components/UI/BaseSpinner";
 require("./bootstrap");
 
 const app = createApp(App);
+
+app.use(store);
 
 app.use(router);
 app.component("base-card", BaseCard);

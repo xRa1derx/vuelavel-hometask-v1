@@ -15,9 +15,15 @@
               </li>
             </ul>
           </section>
-          <span class="arrow" @click="$router.push({ name: 'admin.users' })"
-            >&#11176;</span
+          <svg
+            class="arrow-left-4"
+            @click="$router.push({ name: 'admin.users' })"
+            viewBox="0 0 100 85"
           >
+            <polygon
+              points="58.263,0.056 100,41.85 58.263,83.641 30.662,83.641 62.438,51.866 0,51.866 0,31.611 62.213,31.611 30.605,0 58.263,0.056"
+            />
+          </svg>
         </base-card>
       </aside>
       <div class="chat-wrapper">
@@ -25,24 +31,38 @@
           <div v-if="isLoading">
             <base-spinner></base-spinner>
           </div>
-          <div v-else class="messages" v-for="msg in chat">
+          <div v-else class="messages" v-for="msg in chat" :key="msg.id">
             <p
               :key="msg.id"
-              :class="msg.from == to ? 'receive' : 'send'"
+              :class="{
+                receive: msg.from == to,
+                send: msg.from != to,
+                reply: respondMessage == true && messageId == msg.id,
+              }"
               @click="isContextMenu($event, msg.id)"
             >
+            <span v-if="msg.replyMessage">&crarr;<p class="replied">{{ msg.replyMessage }}</p></span>
+            
               {{ msg.message }}
+              <button
+                v-if="messageId == msg.id && respondMessage == true"
+                @click.stop="closeReply"
+                class="closeReply"
+              >
+                &times
+              </button>
             </p>
             <base-message-edit
               v-if="contextMenu == true && messageId == msg.id"
               @close="contextMenu = false"
-              @copyMsg="copyMessage"
+              @replyMsg="replyMessage"
               @editMsg="editMessage"
               @deleteMsg="removeMessage"
               :msgId="msg.id"
               :clientX="clientX"
               :clientY="clientY"
               :editBtn="editButton"
+              :deleteBtn="deleteButton"
             >
             </base-message-edit>
           </div>
@@ -61,8 +81,11 @@
 
       <div class="textarea-or-edit-wrapper">
         <base-textarea
+          :respondMsg="respondMsg"
           :updateData="getData"
           :selectedToSend="to"
+          :from="$store.state.currentUserId"
+          @afterReply="closeReply"
           v-if="textarea == true"
         ></base-textarea>
         <router-view
@@ -76,9 +99,9 @@
         <base-textarea-edit
           @cancel="getData"
           :selectedToSend="to"
-          :msgId="messageId"
           :updateData="getData"
           :msg="message"
+          :msgToEdit="messageEditId"
           v-else
         >
         </base-textarea-edit>
@@ -95,7 +118,6 @@ import BaseTextareaEdit from "../../components/UI/BaseTextareaEdit.vue";
 
 export default {
   components: { BaseMessageEdit, BaseTextareaEdit },
-  props: ["userss"],
   data() {
     return {
       chat: [],
@@ -103,7 +125,10 @@ export default {
       to: null,
       name: "",
       message: "",
+      respondMsg: null,
 
+      respondMessage: false,
+      deleteButton: true,
       editButton: false,
       textarea: true,
       textareaEdit: false,
@@ -111,16 +136,21 @@ export default {
 
       contextMenu: false,
       messageId: null,
+      messageEditId: null,
 
       clientX: 0,
       clientY: 0,
       isLoading: false,
     };
   },
-  mounted() {
+  created() {
+    this.getRole();
     this.getData();
   },
   methods: {
+    getRole() {
+      this.$store.dispatch("getRole");
+    },
     getData(exit) {
       if (exit == 0) {
         this.exitFromEditUser();
@@ -133,7 +163,7 @@ export default {
       this.to = this.$route.params.id;
       this.isLoading = true;
       axios
-        .get(`/api/admin/users/chat`)
+        .get(`/api/chat`)
         .then((res) => {
           this.users = res.data.users;
           const msgUser = res.data.messages.filter(
@@ -156,18 +186,23 @@ export default {
         });
     },
     removeMessage(id) {
-      axios.delete(`/api/admin/users/chat/${id}`);
-      this.getData();
+      axios.delete(`/api/chat/${id}`).then(() => {
+        this.getData();
+        this.contextMenu = false;
+      });
     },
     editMessage(id) {
       this.message = this.chat.find((msg) => msg.id == id).message;
+      this.messageEditId = id;
       this.textareaEdit = true;
       this.textarea = false;
       this.textareaUserEdit = false;
     },
-    copyMessage(id) {
-      const message = this.chat.find((msg) => msg.id == id).message;
-      navigator.clipboard.writeText(message);
+    replyMessage(id) {
+      this.respondMsg = this.chat.find((msg) => msg.id == id).message;
+      const textarea = document.getElementById("message");
+      textarea.focus();
+      this.respondMessage = true;
     },
     toggleTextarea() {
       this.textareaUserEdit = true;
@@ -187,6 +222,8 @@ export default {
     },
     isContextMenu(event, id) {
       this.contextMenu = !this.contextMenu;
+      this.respondMessage = false;
+      this.respondMsg = null;
       this.messageId = id;
       this.hideEditButton(event);
       this.setPositionToContextMenu(event);
@@ -213,6 +250,10 @@ export default {
       } else {
         this.clientY = event.clientY + window.scrollY;
       }
+    },
+    closeReply() {
+      this.respondMsg = null;
+      this.respondMessage = false;
     },
   },
 };
@@ -286,12 +327,11 @@ a {
 
 ul {
   list-style: none;
-  margin: 0;
+  margin: 0.5rem;
   padding: 0;
 }
 
 li {
-  margin: 1rem 0;
   text-align: center;
 }
 
@@ -349,17 +389,39 @@ a.router-link-active {
   background-color: #c659ae;
 }
 
-.arrow {
-  font-size: 50px;
+.arrow-left-4,
+.arrow-right-4,
+.arrow-top-4,
+.arrow-bottom-4 {
   position: absolute;
   bottom: -5px;
   left: 15px;
-  color: #3a0061;
+  margin: 20px 8px;
+  width: 2rem;
+  height: 2rem;
   cursor: pointer;
 }
-
-.arrow:hover {
-  color: #c659ae;
+.arrow-left-4 polygon,
+.arrow-right-4 polygon,
+.arrow-top-4 polygon,
+.arrow-bottom-4 polygon {
+  fill: #3a0061;
+  transition: fill 0.5s ease-out;
+}
+.arrow-left-4 {
+  transform: rotate(180deg);
+}
+.arrow-top-4 {
+  transform: rotate(270deg);
+}
+.arrow-bottom-4 {
+  transform: rotate(90deg);
+}
+.arrow-left-4:hover polygon,
+.arrow-right-4:hover polygon,
+.arrow-top-4:hover polygon,
+.arrow-bottom-4:hover polygon {
+  fill: #c659ae;
 }
 
 /* animations */
@@ -374,5 +436,29 @@ a.router-link-active {
 
 .fade-leave-to {
   opacity: 0;
+}
+
+.reply {
+  color: #000;
+  font-style: italic;
+  border: 1px solid rgba(0, 0, 0, 0.185);
+  cursor: auto !important;
+}
+
+.replied {
+  font-style: italic;
+  padding: 5px 10px 5px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.185);
+  border-radius: 15px;
+}
+
+.closeReply {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0);
+  top: -1.3rem;
+  right: -1rem;
+  border: none;
+  font-size: 26px;
+  color: rgb(121, 121, 121);
 }
 </style>

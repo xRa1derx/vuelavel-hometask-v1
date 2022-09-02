@@ -1,21 +1,21 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Message;
 
+use App\Http\Controllers\Controller;
+use App\Models\Message;
 use App\Models\User;
 use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Facades\Auth;
 
 class IndexController extends Controller
 {
     public function __invoke()
     {
         $users = User::all();
-        $user = Auth::user()->id;
-
+        $messages = Message::all();
         return Response::json(array(
-            'users' => $users,
-            'user' => $user
+            'messages' => $messages,
+            'users' => $users
         ));
     }
 }

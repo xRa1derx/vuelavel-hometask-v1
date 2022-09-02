@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\Admin\Message;
+namespace App\Http\Requests\Message;
 
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -26,7 +26,8 @@ class StoreRequest extends FormRequest
         return [
             'from' => 'required|integer',
             'to' => 'required|integer',
-            'message' => 'required|string'
+            'message' => 'required|string',
+            'replyMessage' => 'nullable|string'
         ];
     }
 }

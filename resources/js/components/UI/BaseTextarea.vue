@@ -1,53 +1,41 @@
 <template>
-    <div>
-      <textarea
-        v-model="message"
-        name="message"
-        id="message"
-        placeholder="type please..."
-      ></textarea>
-      <button @click="addMessage" type="submit" class="send-message">
-        Send
-      </button>
-    </div>
+  <div>
+    <textarea
+      v-model="message"
+      name="message"
+      id="message"
+      placeholder="type please..."
+    ></textarea>
+    <button @click="addMessage" type="submit" class="send-message">Send</button>
+  </div>
 </template>
 
 <script>
 import axios from "axios";
 export default {
-  props: ["selectedToSend", "updateData"],
+  props: ["selectedToSend", "updateData", "from", "respondMsg"],
+  emit: ["afterReply"],
   data() {
     return {
       message: "",
-      from: null,
     };
-  },
-  mounted() {
-    this.getCurrentUser();
   },
   methods: {
     addMessage() {
       axios
-        .post("/api/admin/users/chat", {
-          from: this.from,
+        .post("/api/chat", {
+          from: this.$store.state.currentUserId,
           to: +this.selectedToSend,
           message: this.message,
+          replyMessage: this.respondMsg,
         })
-        .then((res) => {
-          console.log(res.data);
+        .then(() => {
+          this.updateData();
+          this.message = "";
+          if (this.respondMsg != null) {
+            this.$emit("afterReply");
+          }
         });
-      this.message = "";
-      this.updateData();
-    },
-    getCurrentUser() {
-      axios.get("/api/admin/users/chat").then((res) => {
-        const admin = res.data.users.find((user) => user.role == 0).role === 0;
-        if (admin) {
-          this.from = res.data.users.find((user) => user.role == 0).id;
-        } else {
-          ///
-        }
-      });
     },
   },
 };
