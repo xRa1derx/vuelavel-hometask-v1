@@ -21,6 +21,7 @@ class UpdateController extends Controller
         $userIdInMessageDB = $message->from;
         if ($userIdInMessageDB === $userIdInMessageRequest) {
             $message->update($data);
+            return $message;
         } else {
             abort(403, 'Error!!!.');
         }

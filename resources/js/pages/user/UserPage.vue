@@ -35,24 +35,30 @@
     </div>
     <section class="edit-section">
       <div class="edit-wrap">
-        <base-textarea
-          v-if="textareaEdit == false"
-          :respondMsg="respondMsg"
-          :respondMessage="respondMessage"
-          :selectedToSend="1"
-          :updateData="getData"
-          :from="$store.state.currentUserId"
-          @closeReply="closeReply"
-        ></base-textarea>
-        <base-textarea-edit
-          @cancel="getData"
-          :selectedToSend="1"
-          :msgToEdit="messageEditId"
-          :updateData="getData"
-          :msg="message"
-          v-else
-        >
-        </base-textarea-edit>
+        <transition name="fade-textarea" mode="out-in">
+          <base-textarea
+            v-if="textareaEdit == false"
+            key="textarea"
+            :respondMsg="respondMsg"
+            :respondMessage="respondMessage"
+            :selectedToSend="1"
+            :updateData="getData"
+            :from="$store.state.currentUserId"
+            @closeReply="closeReply"
+            @updateFromAddMessage="updateFromAddMessage"
+          ></base-textarea>
+          <base-textarea-edit
+            v-else
+            @cancel="getData"
+            @updateFromEditMessage="updateFromEditMessage"
+            :selectedToSend="1"
+            :msgToEdit="messageEditId"
+            :updateData="getData"
+            :msg="message"
+            key="textarea-edit"
+          >
+          </base-textarea-edit>
+        </transition>
       </div>
     </section>
   </div>
@@ -70,18 +76,50 @@ export default {
       chat: [],
       textarea: true,
       textareaEdit: false,
+      message: "",
       messageId: null,
       deleteButtonVisible: false,
       messageEditId: null,
       respondMsg: null,
       respondMessage: false,
+
+      isTyping: false,
+      typingTimer: false,
     };
+  },
+  mounted() {
+    Echo.private(`chat.1`).listenForWhisper("typing", (e) => {
+      if (this.to == e.id) {
+        this.isTyping = true;
+        if (this.typingTimer) clearTimeout(this.typingTimer);
+        this.typingTimer = setTimeout(() => {
+          this.isTyping = false;
+        }, 2000);
+      }
+    });
   },
   created() {
     this.getRole();
     this.getData();
   },
   methods: {
+    connect() {
+      Echo.private(`chat.1`).listen("Message", (e) => {
+        console.log(e);
+        axios.get(`/api/chat`).then((res) => {
+          const currentUserId = this.$store.state.currentUserId;
+          const msgUser = res.data.messages.filter(
+            (msg) => msg.from == currentUserId && msg.to == 1
+          );
+          const msgAdmin = res.data.messages.filter(
+            (msg) => msg.from == 1 && msg.to == currentUserId
+          );
+          const chat = msgAdmin.concat(msgUser);
+          this.chat = chat.sort((a, b) => a.id - b.id);
+          this.isTyping = false;
+        });
+      });
+    },
     getRole() {
       this.$store.dispatch("getRole");
       this.$store.state.isAuth = true;
@@ -111,9 +149,23 @@ export default {
           this.isLoading = false;
         });
     },
+    updateFromAddMessage(res) {
+      this.chat.push(res.data);
+      const el = document.querySelector(".chat");
+      setTimeout(() => {
+        el.scrollTop = el.scrollHeight;
+      }, 0);
+    },
+    updateFromEditMessage(res) {
+      const foundIndex = this.chat.findIndex(
+        (message) => message.id == res.data.id
+      );
+      this.chat[foundIndex] = res.data;
+      this.exitFromEditMessage();
+    },
     removeMessage(id) {
       axios.delete(`/api/chat/${id}`).then(() => {
-        this.getData();
+        this.chat = this.chat.filter((message) => id != message.id);
         this.contextMenu = false;
       });
     },
@@ -129,7 +181,9 @@ export default {
       this.respondMsg = this.chat.find((msg) => msg.id == id).message;
       // const textarea = document.getElementById("message");
       // textarea.focus();
-      this.respondMessage = true;
+      setTimeout(() => {
+        this.respondMessage = true;
+      }, 350);
     },
     isContextMenu(event, id) {
       this.contextMenu = !this.contextMenu;
@@ -179,6 +233,7 @@ export default {
   },
   watch: {
     chat: function () {
+      this.connect();
       this.$nextTick(function () {
         const el = document.querySelector(".chat");
         el.scrollTop = el.scrollHeight;
@@ -194,15 +249,10 @@ h1 {
 }
 
 .wrapper {
+  display: flex;
   width: 100%;
   height: 100%;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 10rem 10px 5rem 10px;
-  overflow: hidden;
-  display: flex;
+  padding: 10rem 0 5rem 0;
   flex-direction: column;
   justify-content: center;
 }
@@ -315,5 +365,22 @@ a.router-link-active {
   .edit-wrap {
     width: 100%;
   }
+}
+
+/* animations */
+
+.fade-textarea-enter-from {
+  opacity: 0;
+}
+
+.fade-textarea-enter-active {
+  transition: all 0.1s ease-in;
+}
+.fade-textarea-leave-active {
+  transition: all 0.1s ease-out;
+}
+
+.fade-textarea-leave-to {
+  opacity: 0;
 }
 </style>

@@ -1,6 +1,9 @@
 <template>
   <div class="wrapper">
     <base-burger :getData="getData"></base-burger>
+    <div v-if="isTyping" class="isTyping">
+      <p>{{ name }} is typing...</p>
+    </div>
     <div class="aside-and-chat-wrapper">
       <aside>
         <base-card>
@@ -79,32 +82,39 @@
       </div>
 
       <div class="textarea-or-edit-wrapper">
-        <base-textarea
-          :respondMsg="respondMsg"
-          :respondMessage="respondMessage"
-          :updateData="getData"
-          :selectedToSend="to"
-          :from="$store.state.currentUserId"
-          @closeReply="closeReply"
-          v-if="textarea == true"
-        ></base-textarea>
-        <router-view
-          :currentName="name"
-          :selectedToSend="to"
-          @cancel="getData"
-          :users="users"
-          v-else-if="textareaUserEdit == true"
-        >
-        </router-view>
-        <base-textarea-edit
-          @cancel="getData"
-          :selectedToSend="to"
-          :updateData="getData"
-          :msg="message"
-          :msgToEdit="messageEditId"
-          v-else
-        >
-        </base-textarea-edit>
+        <transition name="fade-textarea" mode="out-in">
+          <base-textarea
+            v-if="textarea == true"
+            key="textarea"
+            :respondMsg="respondMsg"
+            :respondMessage="respondMessage"
+            :updateData="getData"
+            :selectedToSend="to"
+            :from="$store.state.currentUserId"
+            @closeReply="closeReply"
+            @updateFromAddMessage="updateFromAddMessage"
+          ></base-textarea>
+          <router-view
+            v-else-if="textareaUserEdit == true"
+            key="textarea-user-edit"
+            :currentName="name"
+            :selectedToSend="to"
+            @cancel="getData"
+            :users="users"
+          >
+          </router-view>
+          <base-textarea-edit
+            v-else
+            key="textarea-edit"
+            @cancel="getData"
+            @updateFromEditMessage="updateFromEditMessage"
+            :selectedToSend="to"
+            :updateData="getData"
+            :msg="message"
+            :msgToEdit="messageEditId"
+          >
+          </base-textarea-edit>
+        </transition>
       </div>
     </section>
   </div>
@@ -115,7 +125,6 @@ import axios from "axios";
 import BaseMessageEdit from "../../components/UI/BaseMessageEdit.vue";
 import BaseTextareaEdit from "../../components/UI/BaseTextareaEdit.vue";
 import BaseBurger from "../../components/UI/BaseBurger.vue";
-
 
 export default {
   components: { BaseMessageEdit, BaseTextareaEdit, BaseBurger },
@@ -142,13 +151,46 @@ export default {
       clientX: 0,
       clientY: 0,
       isLoading: false,
+
+      isTyping: false,
+      typingTimer: false,
     };
+  },
+  mounted() {
+    Echo.private(`chat.${this.to}`).listenForWhisper("typing", (e) => {
+      if (this.to == e.id) {
+        this.isTyping = true;
+        if (this.typingTimer) clearTimeout(this.typingTimer);
+        this.typingTimer = setTimeout(() => {
+          this.isTyping = false;
+        }, 2000);
+      }
+    });
   },
   created() {
     this.getRole();
     this.getData();
   },
   methods: {
+    connect() {
+      Echo.private(`chat.${this.to}`).listen("Message", (e) => {
+        console.log(e);
+        axios.get(`/api/chat`).then((res) => {
+          const msgUser = res.data.messages.filter(
+            (msg) => msg.from == this.to && msg.to == 1
+          );
+          const msgAdmin = res.data.messages.filter(
+            (msg) => msg.from == 1 && msg.to == this.to
+          );
+          const chat = msgAdmin.concat(msgUser);
+          this.chat = chat.sort((a, b) => a.id - b.id);
+          this.isTyping = false;
+        });
+      });
+    },
+    disconnect() {
+      Echo.private(`chat.${this.to}`).stopListening("Message");
+    },
     getRole() {
       this.$store.dispatch("getRole");
     },
@@ -188,9 +230,27 @@ export default {
           this.isLoading = false;
         });
     },
+    updateFromAddMessage(res) {
+      this.chat.push(res.data);
+      const el = document.querySelector(".chat");
+      setTimeout(() => {
+        el.scrollTop = el.scrollHeight;
+      }, 0);
+    },
+    updateFromEditMessage(res) {
+      const foundIndex = this.chat.findIndex(
+        (message) => message.id == res.data.id
+      );
+      this.chat[foundIndex] = res.data;
+      const el = document.querySelector(".chat");
+      setTimeout(() => {
+        el.scrollTop = el.scrollHeight;
+      }, 0);
+      this.exitFromEditMessage();
+    },
     removeMessage(id) {
       axios.delete(`/api/chat/${id}`).then(() => {
-        this.getData();
+        this.chat = this.chat.filter((message) => id != message.id);
         this.contextMenu = false;
       });
     },
@@ -207,7 +267,9 @@ export default {
       this.respondMsg = this.chat.find((msg) => msg.id == id).message;
       // const textarea = document.getElementById("message");
       // textarea.focus();
-      this.respondMessage = true;
+      setTimeout(() => {
+        this.respondMessage = true;
+      }, 350);
     },
     toggleTextarea() {
       this.textareaUserEdit = true;
@@ -243,13 +305,13 @@ export default {
       let halfScreenY = document.documentElement.clientHeight / 2;
 
       if (halfScreenX < event.clientX) {
-        this.clientX = event.clientX + window.scrollX - 70;
+        this.clientX = event.clientX + window.scrollX - 100;
       } else {
         this.clientX = event.clientX + window.scrollX + 20;
       }
 
       if (halfScreenY < event.clientY) {
-        this.clientY = event.clientY + window.scrollY - 110;
+        this.clientY = event.clientY + window.scrollY - 50;
       } else {
         this.clientY = event.clientY + window.scrollY;
       }
@@ -260,11 +322,22 @@ export default {
     },
   },
   watch: {
-    chat: function () {
+    chat: function (val, oldVal) {
+      this.connect();
+      if (Object.keys(oldVal).length != 0) {
+        this.disconnect();
+        this.connect();
+      }
       this.$nextTick(function () {
         const el = document.querySelector(".chat");
         el.scrollTop = el.scrollHeight;
       });
+    },
+    to(value, oldVal) {
+      if (oldVal != null) {
+        Echo.leave(`chat.${this.to}`);
+        this.connect();
+      }
     },
   },
 };
@@ -466,6 +539,14 @@ a.router-link-active {
   border-radius: 15px;
 }
 
+.isTyping {
+  position: absolute;
+  top: 6.5rem;
+  left: 1rem;
+  font-style: italic;
+  color: rgba(0, 0, 0, 0.394);
+}
+
 @media (max-width: 550px) {
   aside,
   .edit-profile {
@@ -477,5 +558,22 @@ a.router-link-active {
     padding-top: 9rem;
     padding-bottom: 10px;
   }
+}
+
+/* animations */
+
+.fade-textarea-enter-from {
+  opacity: 0;
+}
+
+.fade-textarea-enter-active {
+  transition: all 0.1s ease-in;
+}
+.fade-textarea-leave-active {
+  transition: all 0.1s ease-out;
+}
+
+.fade-textarea-leave-to {
+  opacity: 0;
 }
 </style>

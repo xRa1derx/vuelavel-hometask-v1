@@ -1,6 +1,6 @@
 <template>
   <div class="textarea-wrap">
-    <transition-group @enter="enter" @leave="leave" key="quote">
+    <transition @enter="enter" @leave="leave" key="quote">
       <p
         key="quote"
         v-show="respondMessage"
@@ -9,7 +9,7 @@
       >
         {{ subString }}
       </p>
-    </transition-group>
+    </transition>
     <button
       v-if="respondMessage"
       @click.stop="$emit('closeReply')"
@@ -38,7 +38,7 @@ export default {
     "respondMsg",
     "respondMessage",
   ],
-  emit: ["closeReply"],
+  emit: ["closeReply, updateFromAddMessage"],
   data() {
     return {
       message: "",
@@ -47,6 +47,7 @@ export default {
   },
   methods: {
     enter(el, done) {
+      console.log("enter");
       gsap.to(this.$data, {
         tweenedHeight: 20,
         duration: 0.5,
@@ -70,8 +71,8 @@ export default {
           message: this.message,
           replyMessage: this.respondMsg,
         })
-        .then(() => {
-          this.updateData();
+        .then((res) => {
+          this.$emit("updateFromAddMessage", res);
           this.message = "";
           if (this.respondMsg != null) {
             this.$emit("closeReply");
@@ -85,6 +86,13 @@ export default {
         return this.respondMsg.slice(0, 25) + "...";
       }
       return this.respondMsg;
+    },
+  },
+  watch: {
+    message() {
+      Echo.private(`chat.${this.$store.state.currentUserId}`).whisper("typing", {
+        id: this.$store.state.currentUserId,
+      });
     },
   },
 };
