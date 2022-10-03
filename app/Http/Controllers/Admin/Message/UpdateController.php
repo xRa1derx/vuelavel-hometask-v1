@@ -1,12 +1,11 @@
 <?php
 
-namespace App\Http\Controllers\Message;
+namespace App\Http\Controllers\Admin\Message;
 
-use App\Events\Message as EventsMessage;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Message\UpdateRequest;
+use App\Http\Requests\Admin\Message\UpdateRequest;
 use App\Models\Message;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Response;
 
 class UpdateController extends Controller
 {
@@ -22,10 +21,7 @@ class UpdateController extends Controller
         }
         $userIdInMessageDB = $message->from;
         if ($userIdInMessageDB === $userIdInMessageRequest) {
-            $user = Auth::user();
-            broadcast(new EventsMessage($message, $user));
             $message->update($data);
-            return $message;
         } else {
             abort(403, 'Error!!!.');
         }

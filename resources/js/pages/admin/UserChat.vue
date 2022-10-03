@@ -1,5 +1,9 @@
 <template>
     <div class="wrapper">
+        <base-burger :getData="getData"></base-burger>
+        <div v-if="isTyping" class="isTyping">
+            <p>{{ name }} is typing...</p>
+        </div>
         <div class="aside-and-chat-wrapper">
             <aside>
                 <base-card>
@@ -19,11 +23,17 @@
                             </li>
                         </ul>
                     </section>
-                    <span
-                        class="arrow"
-                        @click="$router.push({ name: 'admin.users' })"
-                        >&#11176;</span
-                    >
+                    <div class="arrow">
+                        <svg
+                            class="arrow-left-4"
+                            @click="$router.push({ name: 'admin.users' })"
+                            viewBox="0 0 100 85"
+                        >
+                            <polygon
+                                points="58.263,0.056 100,41.85 58.263,83.641 30.662,83.641 62.438,51.866 0,51.866 0,31.611 62.213,31.611 30.605,0 58.263,0.056"
+                            />
+                        </svg>
+                    </div>
                 </base-card>
             </aside>
             <div class="chat-wrapper">
@@ -31,32 +41,51 @@
                     <div v-if="isLoading">
                         <base-spinner></base-spinner>
                     </div>
-                    <div
-                        v-else
-                        class="messages"
-                        v-for="msg in chat"
-                        :key="msg.id"
-                    >
-                        <p
-                            :key="msg.id"
-                            :class="msg.from == to ? 'receive' : 'send'"
-                            @click="isContextMenu($event, msg.id)"
-                        >
-                            {{ msg.message }}
-                        </p>
-                        <base-message-edit
-                            v-if="contextMenu == true && messageId == msg.id"
-                            @close="contextMenu = false"
-                            @copyMsg="copyMessage"
-                            @editMsg="editMessage"
-                            @deleteMsg="removeMessage"
-                            :msgId="msg.id"
-                            :clientX="clientX"
-                            :clientY="clientY"
-                            :editBtn="editButton"
-                            :deleteBtn="deleteButton"
-                        >
-                        </base-message-edit>
+                    <div class="loadedChat">
+                        <div class="messages" v-for="msg in chat" :key="msg.id">
+                            <p
+                                :key="msg.id"
+                                :class="{
+                                    receive: msg.from == to,
+                                    send: msg.from != to,
+                                }"
+                                @click="isContextMenu($event, msg.id)"
+                            >
+                                <span>{{ getDate(msg.created_at) }}</span>
+                                <span v-if="msg.replyMessage">
+                                    <p class="replied">
+                                        {{ msg.replyMessage }}
+                                    </p></span
+                                >
+                                {{ msg.message }}
+                                <br v-if="msg.message.length > 10" />
+                                <span
+                                    class="edited"
+                                    v-if="msg.created_at !== msg.updated_at"
+                                >
+                                    <p>&nbsp; edited</p>
+                                </span>
+                                &nbsp;
+                                <span class="time">
+                                    <p>{{ getTime(msg) }}</p>
+                                </span>
+                            </p>
+                            <base-message-edit
+                                v-if="
+                                    contextMenu == true && messageId == msg.id
+                                "
+                                @close="contextMenu = false"
+                                @replyMsg="replyMessage"
+                                @editMsg="editMessage"
+                                @deleteMsg="removeMessage"
+                                :msgId="msg.id"
+                                :clientX="clientX"
+                                :clientY="clientY"
+                                :editBtn="editButton"
+                                :deleteBtn="deleteButton"
+                            >
+                            </base-message-edit>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -72,29 +101,39 @@
             </div>
 
             <div class="textarea-or-edit-wrapper">
-                <base-textarea
-                    :updateData="getData"
-                    :selectedToSend="to"
-                    :from="$store.state.currentUserId"
-                    v-if="textarea == true"
-                ></base-textarea>
-                <router-view
-                    :currentName="name"
-                    :selectedToSend="to"
-                    @cancel="getData"
-                    :users="users"
-                    v-else-if="textareaUserEdit == true"
-                >
-                </router-view>
-                <base-textarea-edit
-                    @cancel="getData"
-                    :selectedToSend="to"
-                    :updateData="getData"
-                    :msg="message"
-                    :msgToEdit="messageEditId"
-                    v-else
-                >
-                </base-textarea-edit>
+                <transition name="fade-textarea" mode="out-in">
+                    <base-textarea
+                        v-if="textarea == true"
+                        key="textarea"
+                        :respondMsg="respondMsg"
+                        :respondMessage="respondMessage"
+                        :updateData="getData"
+                        :selectedToSend="to"
+                        :from="$store.state.currentUserId"
+                        @closeReply="closeReply"
+                        @updateFromAddMessage="updateFromAddMessage"
+                    ></base-textarea>
+                    <router-view
+                        v-else-if="textareaUserEdit == true"
+                        key="textarea-user-edit"
+                        :currentName="name"
+                        :selectedToSend="to"
+                        @cancel="getData"
+                        :users="users"
+                    >
+                    </router-view>
+                    <base-textarea-edit
+                        v-else
+                        key="textarea-edit"
+                        @cancel="getData"
+                        @updateFromEditMessage="updateFromEditMessage"
+                        :selectedToSend="to"
+                        :updateData="getData"
+                        :msg="message"
+                        :msgToEdit="messageEditId"
+                    >
+                    </base-textarea-edit>
+                </transition>
             </div>
         </section>
     </div>
@@ -102,13 +141,12 @@
 
 <script>
 import axios from "axios";
-
 import BaseMessageEdit from "../../components/UI/BaseMessageEdit.vue";
 import BaseTextareaEdit from "../../components/UI/BaseTextareaEdit.vue";
+import BaseBurger from "../../components/UI/BaseBurger.vue";
 
 export default {
-    components: { BaseMessageEdit, BaseTextareaEdit },
-    props: ["userss"],
+    components: { BaseMessageEdit, BaseTextareaEdit, BaseBurger },
     data() {
         return {
             chat: [],
@@ -116,7 +154,9 @@ export default {
             to: null,
             name: "",
             message: "",
+            respondMsg: null,
 
+            respondMessage: false,
             deleteButton: true,
             editButton: false,
             textarea: true,
@@ -130,16 +170,50 @@ export default {
             clientX: 0,
             clientY: 0,
             isLoading: false,
+
+            isTyping: false,
+            typingTimer: false,
         };
+    },
+    mounted() {
+        Echo.private(`chat.${this.to}`).listenForWhisper("typing", (e) => {
+            if (this.to == e.idFrom) {
+                this.isTyping = true;
+                if (this.typingTimer) clearTimeout(this.typingTimer);
+                this.typingTimer = setTimeout(() => {
+                    this.isTyping = false;
+                }, 2000);
+            }
+        });
     },
     created() {
         this.getRole();
         this.getData();
     },
     methods: {
+        connect() {
+            Echo.private(`chat.${this.to}`).listen("Message", (e) => {
+                console.log(e);
+                axios.get(`/api/chat`).then((res) => {
+                    const msgUser = res.data.messages.filter(
+                        (msg) => msg.from == this.to && msg.to == 1
+                    );
+                    const msgAdmin = res.data.messages.filter(
+                        (msg) => msg.from == 1 && msg.to == this.to
+                    );
+                    const chat = msgAdmin.concat(msgUser);
+                    this.chat = chat.sort((a, b) => a.id - b.id);
+                    this.isTyping = false;
+                });
+            });
+        },
+        disconnect() {
+            Echo.private(`chat.${this.to}`).stopListening("Message");
+        },
         getRole() {
             this.$store.dispatch("getRole");
         },
+
         getData(exit) {
             if (exit == 0) {
                 this.exitFromEditUser();
@@ -149,6 +223,7 @@ export default {
                 this.exitFromEditMessage();
                 return;
             }
+            this.closeReply();
             this.to = this.$route.params.id;
             this.isLoading = true;
             axios
@@ -163,6 +238,13 @@ export default {
                     );
                     const chat = msgAdmin.concat(msgUser);
                     this.chat = chat.sort((a, b) => a.id - b.id);
+                    console.log(
+                        this.chat.reduce((acc, item) => {
+                            acc[item.created_at.slice(0, 10)] = acc[item.created_at.slice(0, 10)] || [];
+                            acc[item.created_at.slice(0, 10)].push(item);
+                            return acc;
+                        }, {})
+                    );
 
                     this.name = res.data.users.find(
                         (user) => user.id == this.to
@@ -171,14 +253,39 @@ export default {
                     this.textarea = true;
                     this.textareaEdit = false;
                     this.textareaUserEdit = false;
+
+                    this.$nextTick(function () {
+                        const el = document.querySelector(".chat");
+                        el.scrollTop = el.scrollHeight;
+                    });
                 })
                 .finally(() => {
                     this.isLoading = false;
                 });
         },
+        updateFromAddMessage(res) {
+            this.chat.push(res.data);
+            const el = document.querySelector(".chat");
+            setTimeout(() => {
+                el.scrollTop = el.scrollHeight;
+            }, 0);
+        },
+        updateFromEditMessage(res) {
+            const foundIndex = this.chat.findIndex(
+                (message) => message.id == res.data.id
+            );
+            this.chat[foundIndex] = res.data;
+            const el = document.querySelector(".chat");
+            setTimeout(() => {
+                el.scrollTop = el.scrollHeight;
+            }, 0);
+            this.exitFromEditMessage();
+        },
         removeMessage(id) {
-            axios.delete(`/api/chat/${id}`);
-            this.getData();
+            axios.delete(`/api/chat/${id}`).then(() => {
+                this.chat = this.chat.filter((message) => id != message.id);
+                this.contextMenu = false;
+            });
         },
         editMessage(id) {
             this.message = this.chat.find((msg) => msg.id == id).message;
@@ -186,10 +293,16 @@ export default {
             this.textareaEdit = true;
             this.textarea = false;
             this.textareaUserEdit = false;
+            this.closeReply();
         },
-        copyMessage(id) {
-            const message = this.chat.find((msg) => msg.id == id).message;
-            navigator.clipboard.writeText(message);
+        replyMessage(id) {
+            this.exitFromEditMessage();
+            this.respondMsg = this.chat.find((msg) => msg.id == id).message;
+            // const textarea = document.getElementById("message");
+            // textarea.focus();
+            setTimeout(() => {
+                this.respondMessage = true;
+            }, 350);
         },
         toggleTextarea() {
             this.textareaUserEdit = true;
@@ -210,11 +323,12 @@ export default {
         isContextMenu(event, id) {
             this.contextMenu = !this.contextMenu;
             this.messageId = id;
-            this.hideEditButton(event);
+            this.hideEditButton(id);
             this.setPositionToContextMenu(event);
         },
-        hideEditButton(event) {
-            if (event.target.className == "send") {
+        hideEditButton(id) {
+            const currentMessage = this.chat.filter((msg) => msg.id === id);
+            if (currentMessage[0].from === this.$store.state.currentUserId) {
                 this.editButton = true;
             } else {
                 this.editButton = false;
@@ -225,61 +339,131 @@ export default {
             let halfScreenY = document.documentElement.clientHeight / 2;
 
             if (halfScreenX < event.clientX) {
-                this.clientX = event.clientX + window.scrollX - 70;
+                this.clientX = event.clientX + window.scrollX - 100;
             } else {
                 this.clientX = event.clientX + window.scrollX + 20;
             }
 
             if (halfScreenY < event.clientY) {
-                this.clientY = event.clientY + window.scrollY - 110;
+                this.clientY = event.clientY + window.scrollY - 50;
             } else {
                 this.clientY = event.clientY + window.scrollY;
+            }
+        },
+        closeReply() {
+            this.respondMsg = null;
+            this.respondMessage = false;
+        },
+        getTime(msg) {
+            const time = msg.created_at.split("T")[1].slice(0, 5);
+            return time;
+        },
+        getDate(date) {
+            let currentDate = date.slice(0, 10);
+            return currentDate;
+        },
+    },
+    watch: {
+        chat: function (val, oldVal) {
+            this.connect();
+            if (Object.keys(oldVal).length != 0) {
+                this.disconnect();
+                this.connect();
+            }
+        },
+        to(value, oldVal) {
+            if (oldVal != null) {
+                Echo.leave(`chat.${this.to}`);
+                this.connect();
             }
         },
     },
 };
 </script>
 
-<style scope>
+<style scoped>
 h1 {
     text-align: center;
 }
 
 .wrapper {
+    display: flex;
     width: 100%;
-    margin-top: 70px;
+    height: 100%;
+    padding: 10rem 0 5rem 0;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .aside-and-chat-wrapper {
-    width: 100%;
-    height: 65vh;
     display: flex;
+    height: 60%;
+    padding-bottom: 15px;
+    flex: 1 0 auto;
 }
 
-.textarea-or-edit-wrapper {
-    flex: 3 3 0%;
-    margin-top: 15px;
-    margin-left: 15px;
+.edit-section {
+    display: flex;
+    width: 100%;
+    flex: 0 0 auto;
 }
 
 aside {
     position: relative;
     display: flex;
     flex: 1 1 0%;
-    padding: 0 15px 0 0;
+    padding-right: 15px;
     flex-direction: column;
     justify-content: space-between;
 }
 
-.edit-section {
-    display: flex;
+.chat-wrapper {
+    position: relative;
+    flex: 3 3 0%;
     width: 100%;
 }
 
 .edit-profile {
     flex: 1 1 0%;
+    padding-right: 15px;
     margin: auto;
-    padding: 60px 0;
+}
+.textarea-or-edit-wrapper {
+    flex: 3 3 0%;
+    height: 100%;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+}
+
+.chat {
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.26);
+    padding: 1rem;
+}
+
+.loadedChat {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+    padding-right: 15px;
+}
+
+.aside-user-list {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    height: 98%;
 }
 
 .edit-profile a {
@@ -296,16 +480,6 @@ a {
     margin: 0 !important;
 }
 
-.aside-user-list {
-    display: flex;
-    flex-direction: column;
-    overflow: auto;
-}
-
-.card {
-    height: 100%;
-}
-
 ul {
     list-style: none;
     margin: 0.5rem;
@@ -316,19 +490,6 @@ li {
     text-align: center;
 }
 
-.chat-wrapper {
-    position: relative;
-    flex: 3 3 0%;
-}
-
-.chat {
-    height: 100%;
-    overflow: auto;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.26);
-    padding: 1rem;
-}
-
 .messages {
     position: relative;
     display: flex;
@@ -337,7 +498,6 @@ li {
 
 .messages > p {
     max-width: 90%;
-    /* word-wrap: break-word; */
     overflow-wrap: break-word;
     margin-bottom: 12px;
     line-height: 24px;
@@ -371,29 +531,114 @@ a.router-link-active {
 }
 
 .arrow {
-    font-size: 50px;
-    position: absolute;
-    bottom: -5px;
-    left: 15px;
-    color: #3a0061;
-    cursor: pointer;
+    position: relative;
+    width: 100%;
+    min-height: 2rem;
 }
 
-.arrow:hover {
-    color: #c659ae;
+.arrow-left-4,
+.arrow-right-4,
+.arrow-top-4,
+.arrow-bottom-4 {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 2rem;
+    height: 2rem;
+    cursor: pointer;
+}
+.arrow-left-4 polygon,
+.arrow-right-4 polygon,
+.arrow-top-4 polygon,
+.arrow-bottom-4 polygon {
+    fill: #3a0061;
+    transition: fill 0.5s ease-out;
+}
+.arrow-left-4 {
+    transform: rotate(180deg);
+}
+.arrow-top-4 {
+    transform: rotate(270deg);
+}
+.arrow-bottom-4 {
+    transform: rotate(90deg);
+}
+.arrow-left-4:hover polygon,
+.arrow-right-4:hover polygon,
+.arrow-top-4:hover polygon,
+.arrow-bottom-4:hover polygon {
+    fill: #c659ae;
+}
+
+.replied {
+    font-style: italic;
+    padding: 5px 10px 5px 10px;
+    border: 1px solid rgba(0, 0, 0, 0.185);
+    border-radius: 15px;
+    margin: 10px;
+}
+
+.edited {
+    display: inline-block;
+    float: right;
+}
+
+.edited > p {
+    font-size: 0.8em;
+    font-style: italic;
+    text-align: end;
+    margin: 0;
+    color: rgba(0, 0, 0, 0.462);
+}
+
+.time {
+    display: inline-block;
+    float: right;
+}
+
+.time > p {
+    font-size: 0.8em;
+    font-style: italic;
+    text-align: end;
+    margin: 0;
+    color: rgba(0, 0, 0, 0.462);
+}
+
+.isTyping {
+    position: absolute;
+    top: 6.5rem;
+    left: 1rem;
+    font-style: italic;
+    color: rgba(0, 0, 0, 0.394);
+}
+
+@media (max-width: 550px) {
+    aside,
+    .edit-profile {
+        display: none;
+    }
+
+    .wrapper {
+        padding: 0;
+        padding-top: 9rem;
+        padding-bottom: 10px;
+    }
 }
 
 /* animations */
 
-.fade-enter-from {
+.fade-textarea-enter-from {
     opacity: 0;
 }
 
-.fade-enter-active {
-    transition: opacity 0.5s ease;
+.fade-textarea-enter-active {
+    transition: all 0.1s ease-in;
+}
+.fade-textarea-leave-active {
+    transition: all 0.1s ease-out;
 }
 
-.fade-leave-to {
+.fade-textarea-leave-to {
     opacity: 0;
 }
 </style>

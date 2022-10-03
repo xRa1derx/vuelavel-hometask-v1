@@ -4,8 +4,8 @@
             :style="{ left: clientX + 'px', top: clientY + 'px' }"
             class="contextMenu"
         >
-            <base-button mode="flat" @click="$emit('copyMsg', msgId)">
-                <slot name="copy">Copy</slot>
+            <base-button mode="flat" @click="$emit('replyMsg', msgId)">
+                <slot name="reply">Reply</slot>
             </base-button>
             <base-button
                 v-if="editBtn"
@@ -30,7 +30,7 @@ import BaseButton from "./BaseButton.vue";
 export default {
     components: { BaseButton },
     props: ["msgId", "clientX", "clientY", "editBtn", "deleteBtn"],
-    emits: ["copyMsg", "deleteMsg", "editMsg", "close"],
+    emits: ["replyMsg", "deleteMsg", "editMsg", "close"],
 };
 </script>
 
@@ -51,7 +51,6 @@ export default {
     bottom: 0;
     right: 0;
     z-index: 3;
-    background-color: rgba(238, 238, 238, 0.047);
 }
 
 button {

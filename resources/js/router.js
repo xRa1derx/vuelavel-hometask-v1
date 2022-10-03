@@ -61,9 +61,8 @@ router.beforeEach((to, from, next) => {
             return next({ name: "login" });
         }
     }
-
-    // if (to.name === "login" && token && store.state.isAuth) {
-    //     return next({ name: "admin" });
+    // if (to.name === "login" && token) {
+    //     return next({ name: "admin" } || { name: "chat" });
     // }
 
     next();

@@ -39,8 +39,7 @@ a {
   background-color: #3a0061;
   color: white;
   cursor: pointer;
-  border-radius: 30px;
-  margin-right: 0.5rem;
+  border-radius: 12px;
   display: inline-block;
 }
 

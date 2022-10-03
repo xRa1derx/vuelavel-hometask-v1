@@ -1,5 +1,22 @@
 <template>
-    <div>
+    <div class="textarea-wrap">
+        <transition @enter="enter" @leave="leave" key="quote">
+            <p
+                key="quote"
+                v-show="respondMessage"
+                class="quote"
+                :style="{ height: tweenedHeight + 'px' }"
+            >
+                {{ subString }}
+            </p>
+        </transition>
+        <button
+            v-if="respondMessage"
+            @click.stop="$emit('closeReply')"
+            class="closeReply"
+        >
+            &times
+        </button>
         <textarea
             v-model="message"
             name="message"
@@ -14,61 +31,114 @@
 
 <script>
 import axios from "axios";
+import gsap from "gsap/all";
 export default {
-    props: ["selectedToSend", "updateData", "from"],
+    props: [
+        "selectedToSend",
+        "updateData",
+        "from",
+        "respondMsg",
+        "respondMessage",
+    ],
+    emit: ["closeReply, updateFromAddMessage"],
     data() {
         return {
             message: "",
-            // from: +this.fromId,
+            tweenedHeight: 0,
         };
     },
-    created() {
-        // this.getCurrentUser();
-    },
     methods: {
-        // addMessage() {
-
-        // },
+        enter(el, done) {
+            gsap.to(this.$data, {
+                tweenedHeight: 20,
+                duration: 0.5,
+                ease: "ease.in",
+                onComplete: done,
+            });
+        },
+        leave(el, done) {
+            gsap.to(this.$data, {
+                tweenedHeight: 0,
+                duration: 0.1,
+                ease: "Circ.easeIn",
+                onComplete: done,
+            });
+        },
         addMessage() {
             axios
                 .post("/api/chat", {
                     from: this.$store.state.currentUserId,
                     to: +this.selectedToSend,
                     message: this.message,
+                    replyMessage: this.respondMsg,
                 })
-                .then((res) => {});
-            this.message = "";
-            this.updateData();
+                .then((res) => {
+                    this.$emit("updateFromAddMessage", res);
+                    this.message = "";
+                    if (this.respondMsg != null) {
+                        this.$emit("closeReply");
+                    }
+                });
+        },
+    },
+    computed: {
+        subString() {
+            if (this.respondMsg && this.respondMsg.length > 25) {
+                return this.respondMsg.slice(0, 25) + "...";
+            }
+            return this.respondMsg;
+        },
+    },
+    watch: {
+        message() {
+            Echo.private(`chat.${this.$store.state.currentUserId}`).whisper(
+                "typing",
+                {
+                    idFrom: this.$store.state.currentUserId,
+                    idTo: +this.selectedToSend,
+                }
+            );
         },
     },
 };
 </script>
 
 <style scoped>
-div {
+.textarea-wrap {
     display: flex;
+    flex-direction: column;
     position: relative;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.26);
     border-radius: 12px;
     border-bottom-right-radius: 0;
+    background-color: #eee;
+}
+
+.quote {
+    position: relative;
+    border: none;
+    font: inherit;
+    padding-left: 10px;
+    padding-right: 10px;
+    font-style: italic;
+    margin: 15px;
+    border-left: solid 3px #8d006e;
 }
 
 textarea {
     width: 100%;
-    height: 100px;
     border: none;
     font: inherit;
     border-radius: 12px;
     border-bottom-right-radius: 0;
-    padding: 15px 15px 15px 20px;
+    padding: 5px 80px 0 15px;
     resize: none;
     background-color: #f8fafc;
 }
 
 textarea:focus {
-    background-color: #f0e6fd;
+    background-color: #fff;
     outline: none;
-    border-color: #3d008d;
 }
 
 .send-message {
@@ -88,15 +158,32 @@ textarea:focus {
     border: 1px solid red;
 }
 
-/* animations */
-
-.fade-enter-active,
-.fade-leave-active {
-    transition: opacity 3s ease;
+.closeReply {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: rgba(0, 0, 0, 0);
+    border: none;
+    font-size: 26px;
+    color: rgb(121, 121, 121);
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.test {
+    visibility: hidden;
+}
+
+.reply-slide-enter-from {
+    opacity: 0;
+}
+
+.reply-slide-enter-active {
+    transition: all 1s ease-in;
+}
+.reply-slide-leave-active {
+    transition: all 0.5s ease-out;
+}
+
+.reply-slide-leave-to {
     opacity: 0;
 }
 </style>

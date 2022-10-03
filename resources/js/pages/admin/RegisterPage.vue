@@ -176,7 +176,8 @@ section {
     width: 100%;
     position: relative;
     display: flex;
-    margin-top: 60px;
+    margin: auto;
+    padding-top: 5rem;
 }
 
 .card {

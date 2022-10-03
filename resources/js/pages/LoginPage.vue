@@ -101,8 +101,8 @@ export default {
 
 <style scoped>
 form {
+    padding-top: 5rem;
     margin: auto;
-    padding: 60px 0;
 }
 
 button {
