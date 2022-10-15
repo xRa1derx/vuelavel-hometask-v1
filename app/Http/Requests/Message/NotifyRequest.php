@@ -4,7 +4,7 @@ namespace App\Http\Requests\Message;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateRequest extends FormRequest
+class NotifyRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,10 +24,9 @@ class UpdateRequest extends FormRequest
     public function rules()
     {
         return [
-            'uuid' => 'required|string',
-            'from' => 'required|integer',
+            'from' => 'integer',
             'to' => 'required|integer',
-            'message' => 'required|string'
+            'is_notified' => 'required|integer',
         ];
     }
 }

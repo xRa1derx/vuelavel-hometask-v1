@@ -15,6 +15,7 @@ class CreateMessagesTable extends Migration
     {
         Schema::create('messages', function (Blueprint $table) {
             $table->id();
+            $table->uuid('uuid');
             $table->unsignedBigInteger('from');
             $table->unsignedBigInteger('to');
             $table->foreign('from')->references('id')->on('users');

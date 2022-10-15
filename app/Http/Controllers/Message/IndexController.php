@@ -13,6 +13,7 @@ class IndexController extends Controller
     {
         $users = User::all();
         $messages = Message::all();
+
         return Response::json(array(
             'messages' => $messages,
             'users' => $users

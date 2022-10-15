@@ -24,6 +24,7 @@ class StoreRequest extends FormRequest
     public function rules()
     {
         return [
+            'uuid' => 'required|string',
             'from' => 'required|integer',
             'to' => 'required|integer',
             'message' => 'required|string',

@@ -6,7 +6,7 @@ use App\Events\Message as EventsMessage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Message\UpdateRequest;
 use App\Models\Message;
-use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class UpdateController extends Controller
 {
@@ -22,8 +22,18 @@ class UpdateController extends Controller
         }
         $userIdInMessageDB = $message->from;
         if ($userIdInMessageDB === $userIdInMessageRequest) {
-            $user = Auth::user();
-            broadcast(new EventsMessage($message, $user));
+            if ($message['from'] === 1) {
+                $userId = $message['to'];
+            } else {
+                $userId = $message['from'];
+            }
+    
+            $user = User::findOrFail($userId);
+    
+            broadcast(new EventsMessage(
+                $message,
+                $user
+            ));
             $message->update($data);
             return $message;
         } else {

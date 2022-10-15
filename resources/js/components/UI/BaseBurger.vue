@@ -1,51 +1,39 @@
 <template>
-  <teleport to="#teleport">
-    <!-- <transition-group name="open-close" appear> -->
-    <transition-group
-      appear
-      tag="div"
-      class="open-burger"
-      @click="toggleBurger"
-      @before-enter="beforeEnter"
-      @before-leave="beforeLeave"
-      @enter="enter"
-      @leave="leave"
-    >
-      <span
-        v-if="show"
-        v-for="(item, index) of 3"
-        key="bar"
-        :data-index="index"
-      >
-        <span class="bar1"></span>
-      </span>
-    </transition-group>
+  <transition-group
+    appear
+    tag="div"
+    class="open-burger"
+    @click="toggleBurger"
+    @before-enter="beforeEnter"
+    @before-leave="beforeLeave"
+    @enter="enter"
+    @leave="leave"
+  >
+    <span v-if="show" v-for="(item, index) of 3" key="bar" :data-index="index">
+      <span class="bar1"></span>
+    </span>
+  </transition-group>
 
-    <transition name="fade-backdrop">
-      <div class="backdrop" v-if="!show" @click="toggleBurger"></div>
-    </transition>
+  <transition name="fade-backdrop">
+    <div class="backdrop" v-if="!show" @click="toggleBurger"></div>
+  </transition>
 
-    <transition name="slide">
-      <div v-if="!show" class="burger">
-        <section class="user-list">
-          <ul
-            @click="getData"
-            v-for="user in $store.state.users"
-            :key="user.id"
-          >
-            <li v-if="user.role">
-              <base-button
-                @click="toggleBurger"
-                link
-                :to="`/admin/users/chat/${user.id}`"
-                >{{ user.name }}
-              </base-button>
-            </li>
-          </ul>
-        </section>
-      </div>
-    </transition>
-  </teleport>
+  <transition name="slide">
+    <div v-if="!show" class="burger">
+      <section class="user-list">
+        <ul @click="getData" v-for="user in $store.state.users" :key="user.id">
+          <li v-if="user.role">
+            <base-button
+              @click="toggleBurger"
+              link
+              :to="`/admin/users/chat/${user.id}`"
+              >{{ user.name }}
+            </base-button>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </transition>
 </template>
 
 
@@ -98,9 +86,10 @@ export default {
 
 <style scoped>
 .open-burger {
-  position: absolute;
+  margin-left: auto;
+  /* position: absolute;
   top: 6rem;
-  right: 5px;
+  right: 5px; */
 }
 .burger {
   display: flex;
@@ -110,7 +99,7 @@ export default {
   top: 0;
   width: 250px;
   height: 100%;
-  background-color: rgba(255, 255, 255, 0.192);
+  background-color: rgba(255, 255, 255, 0.813);
   z-index: 2;
 }
 
@@ -122,7 +111,7 @@ export default {
   justify-content: flex-start;
   align-items: center;
   overflow: auto;
-  margin-top: 3rem;
+  margin: auto;
 }
 
 ul {
@@ -152,7 +141,7 @@ li {
   height: 2px;
   background-color: black;
   display: block;
-  margin: 8px;
+  margin: 7px;
   background-color: #8d006e;
 }
 

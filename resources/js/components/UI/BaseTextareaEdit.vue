@@ -1,6 +1,12 @@
 <template>
   <div>
-    <textarea v-model="message" name="message" id="message"></textarea>
+    <textarea
+      @keydown.enter.prevent="editMessage"
+      @keydown.tab.exact.prevent="tabLeft($event)"
+      v-model="message"
+      name="message"
+      id="message"
+    ></textarea>
     <button @click="$emit('cancel', 1)" type="button" class="cancel-message">
       &times
     </button>
@@ -25,17 +31,34 @@ export default {
     this.getCurrentUser();
   },
   methods: {
-    async editMessage() {
-      await axios
-        .patch(`/api/chat/${this.msgToEdit}`, {
+    editMessage(event) {
+      if (event.ctrlKey) {
+        let caret = event.target.selectionStart;
+        event.target.setRangeText("\n", caret, caret, "end");
+        this.message = event.target.value;
+      } else {
+        const data = {
+          uuid: this.msgToEdit.uuid,
           to: +this.selectedToSend,
           from: +this.from,
           message: this.message,
-        })
-        .then((res) => {
-          this.$emit("updateFromEditMessage", res);
-        });
-      this.message = "";
+          created_at: this.msgToEdit.created_at,
+        };
+        axios.patch(`/api/chat/${this.msgToEdit.uuid}`, data);
+        this.$emit("updateFromEditMessage", data);
+        this.message = "";
+      }
+    },
+    tabLeft(event) {
+      let text = this.message,
+        originalSelectionStart = event.target.selectionStart,
+        textStart = text.slice(0, originalSelectionStart),
+        textEnd = text.slice(originalSelectionStart);
+
+      this.message = `${textStart}\t${textEnd}`;
+      event.target.value = this.message;
+      event.target.selectionEnd = event.target.selectionStart =
+        originalSelectionStart + 1;
     },
     getCurrentUser() {
       axios.get("/api/chat").then((res) => {

@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class AddColumnReplyMessageToMessagesTable extends Migration
+class AddColumnNotifyToMessagesTable extends Migration
 {
     /**
      * Run the migrations.
@@ -14,7 +14,7 @@ class AddColumnReplyMessageToMessagesTable extends Migration
     public function up()
     {
         Schema::table('messages', function (Blueprint $table) {
-            $table->text('replyMessage')->nullable()->after('message');
+            $table->unsignedSmallInteger('is_notified')->default('0')->after('replyMessage');
         });
     }
 
@@ -26,7 +26,7 @@ class AddColumnReplyMessageToMessagesTable extends Migration
     public function down()
     {
         Schema::table('messages', function (Blueprint $table) {
-            $table->dropColumn('replyMessage');
+            $table->dropColumn('is_notified');
         });
     }
 }
