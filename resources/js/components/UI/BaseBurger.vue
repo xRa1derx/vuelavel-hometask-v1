@@ -21,14 +21,27 @@
   <transition name="slide">
     <div v-if="!show" class="burger">
       <section class="user-list">
-        <ul @click="getData" v-for="user in $store.state.users" :key="user.id">
-          <li v-if="user.role">
-            <base-button
-              @click="toggleBurger"
-              link
-              :to="`/admin/users/chat/${user.id}`"
-              >{{ user.name }}
-            </base-button>
+        <ul  v-for="user in $store.state.users" :key="user.id">
+          <li @click="getChat" v-if="user.role">
+            <div class="new-message">
+                <img
+                  v-show="isNewMessage(user)"
+                  src="../../assets/images/comment-exclamation.png"
+                  alt=""
+                />
+              </div>
+              <li @click="getChat">
+                <base-button
+                @click="toggleBurger"
+                  link
+                  class="aside-user-list-button"
+                  :to="`/admin/users/chat/${user.id}`"
+                  >{{ user.name }}
+                </base-button>
+              </li>
+              <div class="onlineAlert-wrapper">
+                <span v-show="onlineStatus(user.id)" class="onlineAlert"></span>
+              </div>
           </li>
         </ul>
       </section>
@@ -42,19 +55,21 @@
 import gsap from "gsap";
 
 export default {
-  props: ["getData"],
+  props: ["getChat"],
   data() {
     return {
       show: true,
     };
   },
   methods: {
+    onlineStatus(id) {
+      return this.$store.state.onlineUsers.find((user) => user.id === id);
+    },
+    isNewMessage(user) {
+      return this.$store.state.newMessage.has(user.id);
+    },
     toggleBurger() {
       this.show = !this.show;
-    },
-    getDataAndClose() {
-      this.toggleBurger();
-      this.getData();
     },
     beforeEnter(el) {
       el.style.opacity = 0;
@@ -87,9 +102,6 @@ export default {
 <style scoped>
 .open-burger {
   margin-left: auto;
-  /* position: absolute;
-  top: 6rem;
-  right: 5px; */
 }
 .burger {
   display: flex;
@@ -99,7 +111,7 @@ export default {
   top: 0;
   width: 250px;
   height: 100%;
-  background-color: rgba(255, 255, 255, 0.813);
+  background-color: #ebdce5ce;
   z-index: 2;
 }
 
@@ -116,12 +128,17 @@ export default {
 
 ul {
   list-style: none;
-  margin: 0;
+  margin-bottom: 0.5rem;
   padding: 0;
 }
 
 li {
-  margin: 0.5rem;
+  display: flex;
+}
+
+li > a{
+  text-align: center;
+  width: 100px;
 }
 
 .backdrop {
@@ -147,6 +164,36 @@ li {
 
 ::-webkit-scrollbar {
   width: 0;
+}
+
+.new-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.new-message > img {
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+}
+
+.onlineAlert-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.onlineAlert {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50px;
+  background-color: #59c671;
 }
 
 /* animations */

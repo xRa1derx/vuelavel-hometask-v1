@@ -5,14 +5,12 @@ namespace App\Http\Controllers\Message;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Message\NotifyRequest;
 use App\Models\Message;
-use App\Models\User;
 
 class NotifyController extends Controller
 {
-    public function __invoke(NotifyRequest $request, User $user)
+    public function __invoke(NotifyRequest $request)
     {
         $data = $request->validated();
-
         foreach ($data as $key => $value) {
             if ($key == 'to') {
                 $userIdTo = $value;

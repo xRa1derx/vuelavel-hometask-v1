@@ -9,6 +9,8 @@ const store = createStore({
             isAuth: false,
             isLoading: false,
             users: [],
+            onlineUsers: [],
+            newMessage: [],
         };
     },
     mutations: {
@@ -54,6 +56,9 @@ const store = createStore({
     getters: {
         loadingSpinner(state) {
             return state.isLoading;
+        },
+        onlineStatus(state) {
+            return state.onlineUsers;
         },
     },
 });

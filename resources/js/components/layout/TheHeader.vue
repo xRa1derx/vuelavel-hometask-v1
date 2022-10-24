@@ -18,9 +18,17 @@ export default {
     logout() {
       axios.post("/logout").then((res) => {
         localStorage.removeItem("x_xsrf_token");
+        if (this.$store.state.currentUserId === 1) {
+          Object.values(this.$store.state.users).map((user) =>
+            Echo.leaveChannel(`presence-chat.${user.id}`)
+          );
+        } else {
+          Echo.leaveChannel(`presence-chat.${this.$store.state.currentUserId}`);
+        }
         this.$store.state.isAdmin = false;
         this.$store.state.isAuth = false;
         this.$store.state.currentUserId = null;
+
         this.$router.push({ name: "login" });
       });
     },
@@ -29,8 +37,7 @@ export default {
 </script>
 
 <style scoped>
-
-.container{
+.container {
   flex-direction: row;
 }
 

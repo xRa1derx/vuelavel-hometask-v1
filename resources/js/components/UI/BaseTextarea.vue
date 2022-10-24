@@ -55,17 +55,18 @@ export default {
     };
   },
   created() {
-    document.addEventListener("touchend", (e) => {
+    document.addEventListener("touchend", this.listener);
+  },
+  beforeUnmount() {
+    document.removeEventListener("touchend", this.listener);
+  },
+  methods: {
+    listener(e) {
       if (e.target.classList.contains("send-message")) {
         e.preventDefault();
         this.addMessageAxios();
       }
-    });
-  },
-  beforeUnmount() {
-    document.removeEventListener("touchend");
-  },
-  methods: {
+    },
     touchTextarea() {
       setTimeout(() => {
         const el = document.querySelector(".chat");
@@ -125,6 +126,8 @@ export default {
         if (this.respondMsg != null) {
           this.$emit("closeReply");
         }
+        const textarea = document.getElementById("message");
+        textarea.focus();
       }
     },
     typeMessage() {

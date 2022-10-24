@@ -4,16 +4,29 @@
       <img src="../../assets/images/Girl-Avatar-PNG-Picture.png" alt="" />
       <p>
         {{ name }}
-        <span v-if="isTyping" class="isTyping"><p>is typing...</p></span>
+        <span class="isTyping"
+          ><p v-if="isTyping">is typing...</p>
+          <p v-else-if="isOnline && onlineStatus(+to)">online</p></span
+        >
       </p>
-      <base-burger :getData="getData"></base-burger>
+      <base-burger :getChat="getChat"></base-burger>
     </div>
     <div class="aside-and-chat-wrapper">
       <aside>
         <base-card>
           <section class="aside-user-list">
-            <ul @click="getData" v-for="user in users" :key="user.id">
-              <li v-if="user.role">
+            <ul
+              v-for="user in users.filter((user) => user.role != 0)"
+              :key="user.id"
+            >
+              <div class="new-message">
+                <img
+                  v-show="isNewMessage(user)"
+                  src="../../assets/images/comment-exclamation.png"
+                  alt=""
+                />
+              </div>
+              <li @click="getChat">
                 <base-button
                   link
                   class="aside-user-list-button"
@@ -21,6 +34,9 @@
                   >{{ user.name }}
                 </base-button>
               </li>
+              <div class="onlineAlert-wrapper">
+                <span v-show="onlineStatus(user.id)" class="onlineAlert"></span>
+              </div>
             </ul>
           </section>
           <div class="arrow">
@@ -37,15 +53,11 @@
         </base-card>
       </aside>
       <div class="chat-wrapper">
-        <!-- <div v-if="notification && to == 2" class="notification" @click="notificationAlert"></div> -->
-        <!-- <div v-if="isTyping" class="isTyping">
-          <p>{{ name }} is typing...</p>
-        </div> -->
         <section class="chat">
           <div v-if="isLoading">
             <base-spinner></base-spinner>
           </div>
-          <div class="loadedChat">
+          <div v-else class="loadedChat">
             <div v-for="day in chat">
               <p v-if="day[0]" class="fulldate">
                 {{ getFullDate(day[0]).toLocaleString().slice(0, 10) }}
@@ -129,18 +141,18 @@
             key="textarea-user-edit"
             :currentName="name"
             :selectedToSend="to"
-            @cancel="getData"
+            @cancel="getChat"
             :users="users"
           >
           </router-view>
           <base-textarea-edit
             v-else
             key="textarea-edit"
-            @cancel="getData"
+            @cancel="getChat"
             @updateFromEditMessage="updateFromEditMessage"
             :selectedToSend="to"
-            :msgToEdit="messageEditId"
-            :updateData="getData"
+            :msgToEdit="messageEdit"
+            :updateData="getChat"
             :msg="message"
           >
           </base-textarea-edit>
@@ -176,7 +188,7 @@ export default {
 
       contextMenu: false,
       messageId: null,
-      messageEditId: null,
+      messageEdit: null,
 
       clientX: 0,
       clientY: 0,
@@ -184,21 +196,25 @@ export default {
 
       isTyping: false,
       typingTimer: false,
+      isOnline: false,
     };
   },
   mounted() {
-    this.pusherWhisper();
     const el = document.querySelector(".chat");
     el.addEventListener("scroll", this.handleScroll);
   },
   created() {
-    this.getRole();
     this.getData();
+    this.pusherWhisper();
   },
   methods: {
     handleScroll() {
       const el = document.querySelector(".chat");
-      if (el.scrollTop + el.clientHeight >= el.scrollHeight) {
+      if (
+        el.scrollTop + el.clientHeight >= el.scrollHeight - 2 ||
+        el.scrollHeight < el.clientHeight
+      ) {
+        // if scroll is down OR no scroll
         axios.patch(`/api/chat/notify/${this.to}`, {
           from: this.$store.state.currentUserId,
           to: +this.to,
@@ -212,33 +228,10 @@ export default {
             }, 2000)
           );
         }
+        this.$store.state.newMessage.delete(+this.to);
       }
     },
-    connect() {
-      Echo.private(`chat.${this.to}`).listen("Message", (e) => {
-        axios.get(`/api/chat`).then((res) => {
-          this.init(res);
-          this.isTyping = false;
-          const el = document.querySelector(".chat");
-          if (el.scrollTop + el.clientHeight >= el.scrollHeight) {
-            this.scrollDown();
-            for (let day in this.chat) {
-              this.chat[day]
-                .filter((msg) => msg.to != this.to)
-                .map((msg) => (msg.is_notified = 1));
-            }
-          }
-        });
-      });
-    },
-    disconnect() {
-      Echo.private(`chat.${this.to}`).stopListening("Message");
-    },
-    getRole() {
-      this.$store.dispatch("getRole");
-    },
-
-    getData(exit) {
+    getChat(exit) {
       if (exit == 0) {
         this.exitFromEditUser();
         return;
@@ -250,21 +243,132 @@ export default {
       this.closeReply();
       this.to = this.$route.params.id;
       this.isLoading = true;
+      this.isOnline = false;
+      this.name = '';
+      axios
+        .get(`/api/chat`)
+        .then((res) => {
+          console.log(res);
+          const msgUser = res.data.messages.filter(
+            (msg) => msg.from == this.to && msg.to == 1
+          );
+          const msgAdmin = res.data.messages.filter(
+            (msg) => msg.from == 1 && msg.to == this.to
+          );
+          const chat = msgAdmin.concat(msgUser);
+          this.chat = chat.sort((a, b) => a.id - b.id);
+
+          this.chat = chat.reduce((acc, message) => {
+            const dayMonthYear = this.getFullDate(message)
+              .toLocaleString()
+              .slice(0, 10);
+            acc[dayMonthYear] = acc[dayMonthYear] || [];
+            acc[dayMonthYear].push(message);
+            return acc;
+          }, {});
+          this.textarea = true;
+          this.textareaEdit = false;
+          this.textareaUserEdit = false;
+          this.isOnline = true;
+          this.name = res.data.users.find((user) => user.id == this.to).name;
+        })
+        .finally(() => {
+          this.isLoading = false;
+          this.scrollDown();
+        });
+    },
+    connect() {
+      this.users
+        .filter((user) => user.id != 1)
+        .map((channelName) => {
+          Echo.join(`chat.${channelName.id}`)
+            .here((users) => {
+              let currentUsers = this.$store.state.onlineUsers.concat(
+                users.filter((user) => user.id != 1)
+              );
+              this.$store.state.onlineUsers = currentUsers;
+              console.log(users);
+              console.log("SUBSCRIBED!");
+            })
+            .joining((user) => {
+              this.$store.state.onlineUsers.push(user);
+              console.log({ user }, "joined");
+            })
+            .leaving((user) => {
+              this.$store.state.onlineUsers =
+                this.$store.state.onlineUsers.filter(
+                  (onlineUsers) => onlineUsers.id !== user.id
+                );
+              console.log({ user }, "leaving");
+            })
+            .listen("Message", () => {
+              axios.get(`/api/chat`).then((res) => {
+                this.init(res);
+                console.log(res);
+                this.isTyping = false;
+                const el = document.querySelector(".chat");
+                if (el.scrollTop + el.clientHeight >= el.scrollHeight) {
+                  this.scrollDown();
+                  for (let day in this.chat) {
+                    this.chat[day]
+                      .filter((msg) => msg.to != this.to)
+                      .map((msg) => (msg.is_notified = 1));
+                  }
+                }
+              });
+            });
+        });
+    },
+    // disconnect() {
+    //   Echo.join(`chat.${this.to}`).stopListening("Message");
+    // },
+    getData(exit) {
+      // if (exit == 0) {
+      //   this.exitFromEditUser();
+      //   return;
+      // }
+      // if (exit == 1) {
+      //   this.exitFromEditMessage();
+      //   return;
+      // }
+      this.closeReply();
+      this.to = this.$route.params.id;
+      this.isLoading = true;
+      this.isOnline = false;
       axios
         .get(`/api/chat`)
         .then((res) => {
           this.init(res);
+          this.connect();
           this.textarea = true;
           this.textareaEdit = false;
           this.textareaUserEdit = false;
-          this.scrollDown();
         })
         .finally(() => {
           this.isLoading = false;
+          this.scrollDown();
         });
     },
     init(res) {
+      this.$store.state.currentUserId = res.data.user;
+      const admin = Boolean(
+        res.data.users.find(
+          (user) => user.role == 0 && user.id == res.data.user
+        )
+      );
+      this.$store.state.isAdmin = admin;
+      if (
+        this.$store.state.isAdmin === true &&
+        this.$store.state.isAuth === false
+      ) {
+        this.$router.replace("/admin");
+      }
+      if (this.$store.state.isAdmin === false) {
+        this.$router.replace("/chat");
+      }
+      this.$store.state.isAuth = true;
       this.users = res.data.users;
+      this.$store.state.newMessage = new Set(res.data.new_message.map((item) => item.from));
       const msgUser = res.data.messages.filter(
         (msg) => msg.from == this.to && msg.to == 1
       );
@@ -282,8 +386,8 @@ export default {
         acc[dayMonthYear].push(message);
         return acc;
       }, {});
-
       this.name = res.data.users.find((user) => user.id == this.to).name;
+      this.isOnline = true;
     },
     getFullDate(msg) {
       let date = msg.created_at.slice(0, 16).replace("T", " ");
@@ -292,38 +396,35 @@ export default {
       return time;
     },
     updateFromAddMessage(msg) {
-      const messageDate = this.getFullDate(msg.data)
-        .toLocaleString()
-        .slice(0, 10);
+      const messageDate = this.getFullDate(msg).toLocaleString().slice(0, 10);
       if (!this.chat[messageDate]) {
         this.chat[messageDate] = [];
       }
-      this.chat[messageDate].push(msg.data);
+      this.chat[messageDate].push(msg);
       this.scrollDown();
     },
     updateFromEditMessage(msg) {
-      const messageDate = this.getFullDate(msg.data)
-        .toLocaleString()
-        .slice(0, 10);
+      console.log(msg);
+      const messageDate = this.getFullDate(msg).toLocaleString().slice(0, 10);
       const editedMessageIndex = this.chat[messageDate].findIndex(
-        (message) => message.id == msg.data.id
+        (message) => message.uuid == msg.uuid
       );
-      this.chat[messageDate].splice(editedMessageIndex, 1, msg.data);
+      this.chat[messageDate].splice(editedMessageIndex, 1, msg);
       this.exitFromEditMessage();
     },
     removeMessage(message) {
-      axios.delete(`/api/chat/${message.id}`);
+      axios.delete(`/api/chat/${message.uuid}`);
       const messageDate = this.getFullDate(message)
         .toLocaleString()
         .slice(0, 10);
       const deletedMessageIndex = this.chat[messageDate].findIndex(
-        (msg) => msg.id == message.id
+        (msg) => msg.uuid == message.uuid
       );
       this.chat[messageDate].splice(deletedMessageIndex, 1);
       this.contextMenu = false;
     },
     editMessage(message) {
-      this.messageEditId = message.id;
+      this.messageEdit = message;
       this.message = message.message;
       this.textareaEdit = true;
       this.textarea = false;
@@ -417,29 +518,25 @@ export default {
       this.scrollDown();
       this.notification = false;
     },
+    onlineStatus(id) {
+      return this.$store.state.onlineUsers.find((user) => user.id === id);
+    },
+    isNewMessage(user) {
+      return this.$store.state.newMessage.has(user.id);
+    },
   },
   watch: {
-    chat: function (val, oldVal) {
-      this.connect();
-      this.pusherWhisper();
-      if (Object.keys(oldVal).length != 0) {
-        this.disconnect();
-        this.connect();
-      }
-    },
-    to(value, oldVal) {
-      if (oldVal != null) {
-        Echo.leave(`chat.${this.to}`);
-        // this.connect();
-      }
-    },
-    // notification(value) {
-    //   if (value === true) {
-    //     setTimeout(() => {
-    //       this.$refs.messages.lastElementChild.classList.add(
-    //         "notification-alert"
-    //       );
-    //     }, 0);
+    // chat: function (val, oldVal) {
+    //   this.connect();
+    //   this.pusherWhisper();
+    //   if (Object.keys(oldVal).length != 0) {
+    //     this.disconnect();
+    //     this.connect();
+    //   }
+    // },
+    // to(value, oldVal) {
+    //   if (oldVal != null) {
+    //     Echo.leave(`chat.${this.to}`);
     //   }
     // },
   },
@@ -492,13 +589,14 @@ h1 {
 }
 
 .fulldate {
-  color: rgba(0, 0, 0, 0.395);
+  background-color: #fff;
+  color: rgba(0, 0, 0, 0.83);
   padding: 3px 12px;
   font-size: 1em;
   width: fit-content;
   margin: 10px auto;
   border-radius: 25px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.26);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.549);
 }
 
 .aside-and-chat-wrapper {
@@ -544,6 +642,9 @@ aside {
   flex-direction: column;
   justify-content: space-between;
   height: 100%;
+  padding: 16px 8px !important;
+  background-color: #ebdce5;
+  border: none;
 }
 
 .chat {
@@ -554,6 +655,8 @@ aside {
   overflow: auto;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.26);
+  background-image: url("../../assets/images/output-onlinepngtools(20).png");
+  background-position: center;
 }
 
 .loadedChat {
@@ -568,6 +671,10 @@ aside {
   flex-direction: column;
   overflow: auto;
   height: 98%;
+}
+
+.aside-user-list > ul {
+  position: relative;
 }
 
 .edit-profile a {
@@ -585,13 +692,46 @@ a {
 }
 
 ul {
+  display: flex;
   list-style: none;
-  margin: 0.5rem;
   padding: 0;
+  justify-content: space-between;
+  gap: 3px;
+}
+
+.new-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.new-message > img {
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
 }
 
 li {
+  width: 100%;
   text-align: center;
+}
+
+.onlineAlert-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.onlineAlert {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50px;
+  background-color: #59c671;
 }
 
 .messages {
@@ -613,7 +753,7 @@ li {
 .send {
   align-self: flex-end;
   color: black;
-  background-color: #c659ae3c;
+  background-color: #e39ed3;
   cursor: pointer;
   margin: 0 !important;
   white-space: pre-wrap;
@@ -712,28 +852,6 @@ a.router-link-active {
   margin: 0;
   color: rgba(0, 0, 0, 0.462);
 }
-
-/* .notification {
-  position: fixed;
-  width: 50px;
-  height: 50px;
-  border-radius: 50px;
-  background-color: #c659ae;
-  z-index: 1;
-  margin-left: 1rem;
-  margin-top: 1rem;
-  cursor: pointer;
-} */
-
-/* .notification > p {
-  color: #fff;
-  text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
-  text-align: center;
-} */
-/* 
-.notification:hover {
-  background-color: #c659ae31;
-} */
 
 .notificationAlert {
   background-color: #c659ae31;
