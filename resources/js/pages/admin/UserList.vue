@@ -119,7 +119,7 @@ ul {
 li {
   display: flex;
   justify-content: center;
-  margin: 0.5rem;
+  margin: 0.3rem;
 }
 
 li > a {

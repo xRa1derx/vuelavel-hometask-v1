@@ -120,7 +120,7 @@ export default {
   flex-direction: column;
   width: 100%;
   height: 70%;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
   overflow: auto;
   margin: auto;

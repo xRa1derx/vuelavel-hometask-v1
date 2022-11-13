@@ -28,6 +28,7 @@
     "laravel-echo": "^1.14.0",
     "pusher-js": "^7.4.0",
     "vue-router": "^4.0.13",
+    "vuetify": "^3.0.0",
     "vuex": "^4.0.2"
   },
   "name": "vuelavel-hometask-v1-master",

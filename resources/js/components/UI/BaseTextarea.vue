@@ -22,13 +22,13 @@
       @keydown.tab.exact.prevent="tabLeft($event)"
       @keydown="typeMessage"
       :value="message"
-      @input="(e) => (message = e.target.value)"
+      @input="autoGrow($event)"
       name="message"
       id="message"
       placeholder="type please..."
       @click="touchTextarea()"
     ></textarea>
-    <button
+    <v-btn
       @click="addMessage"
       type="submit"
       class="send-message"
@@ -36,7 +36,7 @@
       :disabled="isInputDisabled"
     >
       Send
-    </button>
+    </v-btn>
   </div>
 </template>
 
@@ -142,6 +142,11 @@ export default {
         idTo: +this.selectedToSend,
       });
     },
+    autoGrow(element) {
+      this.message = element.target.value;
+      element.target.style.height = "37px";
+      element.target.style.height = `${element.target.scrollHeight}px`;
+    },
   },
   computed: {
     subString() {
@@ -163,13 +168,11 @@ export default {
 
 <style scoped>
 .textarea-wrap {
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   position: relative;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.26);
-  border-radius: 12px;
-  border-bottom-right-radius: 0;
-  background-color: #eee;
+  border-top: 1px solid rgb(213, 213, 213);
 }
 
 .quote {
@@ -184,18 +187,17 @@ export default {
 }
 
 textarea {
+  height: 37px;
+  max-height: 80px;
+  background-color: inherit;
   width: 100%;
   border: none;
   font: inherit;
-  border-radius: 12px;
-  border-bottom-right-radius: 0;
-  padding: 5px 80px 0 15px;
+  padding: 0 80px 0 15px;
   resize: none;
-  background-color: #f8fafc;
 }
 
 textarea:focus {
-  background-color: #fff;
   outline: none;
 }
 
@@ -209,7 +211,6 @@ textarea:focus {
   background-color: #8d006e;
   color: #fff;
   width: 5em;
-  height: 2.5em;
 }
 
 .invalid textarea {

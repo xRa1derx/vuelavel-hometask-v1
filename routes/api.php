@@ -27,6 +27,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
         Route::post('/', 'StoreController');
         Route::delete('/{message}', 'DeleteController');
         Route::patch('/{message}', 'UpdateController');
+        Route::patch('/notify/{user}', 'NotifyController');
     });
 
     Route::group(['middleware' => 'admin', 'prefix' => 'admin/users', 'namespace' => 'Admin\User'], function () {

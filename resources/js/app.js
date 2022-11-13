@@ -9,9 +9,21 @@ import BaseTextarea from "./components/UI/BaseTextarea";
 import BaseArrow from "./components/UI/BaseArrow";
 import BaseSpinner from "./components/UI/BaseSpinner";
 
+import 'vuetify/styles'
+import { createVuetify } from 'vuetify'
+import * as components from 'vuetify/components'
+import * as directives from 'vuetify/directives'
+
+const vuetify = createVuetify({
+  components,
+  directives,
+})
+
 require("./bootstrap");
 
 const app = createApp(App);
+
+app.use(vuetify);
 
 app.use(store);
 
